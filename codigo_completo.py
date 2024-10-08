@@ -9,15 +9,18 @@ class Usuario:
         self.nombre = nombre
         self.contraseña = constraseña
         self.rol = rol
+        self.autos_reservados = []
       
 class Auto:
-    def __init__(self,marca, modelo, año, precio_por_día, disponibilidad):
+    def __init__(self,marca, modelo, año, precio_por_día, disponibilidad=True):
         self.marca = marca
         self.modelo = modelo
         self.año = año
         self.precio_por_dia = precio_por_día
         self.disponib = disponibilidad
 
+
+usuario_logueado = None
 
 #FUNCIONES DE INTANCIA DE CLASES Y CARGA EN ARCHIVOS
 def agregar_auto():
@@ -72,8 +75,8 @@ def cargar_lista_usuarios():
         
 def mostrar_usuarios():
     cargar_lista_usuarios()
-    lista_usuarios.place(x=200, y=100, height=150, width=190)
-    boton_borrar_usuario.place(x=400, y=100, height=50, width=50)
+    lista_usuarios.place(x=250, y=100, height=150, width=190)
+    boton_borrar_usuario.place(x=450, y=100, height=50, width=50)
     
     
 
@@ -255,32 +258,86 @@ def ver_detalle():
         ventana_secundaria_det.geometry("300x200")
         
         cartel_marca_det = tk.Label(ventana_secundaria_det, text = auto_seleccionado.marca)
-        cartel_marca_det.place(x=40, y=1)
+        cartel_marca_det.place(x=100, y=50)
         
+        cartel_marca_nombre = tk.Label(ventana_secundaria_det, text = "marca:",relief=tk.FLAT, fg="white", bg="steel blue")
+        cartel_marca_nombre.place(x=50, y=50)
+            
         cartel_modelo_det = tk.Label(ventana_secundaria_det, text=auto_seleccionado.modelo)
-        cartel_modelo_det.place(x=40, y=16)
+        cartel_modelo_det.place(x=100, y=90)
+        
+        cartel_modelo_nombre = tk.Label(ventana_secundaria_det, text = "modelo:",relief=tk.FLAT, fg="white", bg="steel blue")
+        cartel_modelo_nombre.place(x=50, y=90)
 
         cartel_año_det = tk.Label(ventana_secundaria_det, text=auto_seleccionado.año)
-        cartel_año_det.place(x=40, y=31)
+        cartel_año_det.place(x=100, y=130)
+        
+        cartel_año_nombre = tk.Label(ventana_secundaria_det, text = "año:",relief=tk.FLAT, fg="white", bg="steel blue")
+        cartel_año_nombre.place(x=50, y=130)
 
         cartel_precioXdia_det = tk.Label(ventana_secundaria_det, text=auto_seleccionado.precio_por_dia)
-        cartel_precioXdia_det.place(x=40, y=46)
+        cartel_precioXdia_det.place(x=100, y=170)
         
-        
+        cartel_precio_nombre = tk.Label(ventana_secundaria_det, text = "precio por dia:",relief=tk.FLAT, fg="white", bg="steel blue")
+        cartel_precio_nombre.place(x=10, y=170)
+            
+        boton_reservar_auto = tk.Button(ventana_secundaria_det, text="Reservar",relief=tk.SOLID, fg="white", bg="steel blue",command=lambda: reservar_auto(auto_seleccionado, ventana_secundaria_det))
+        boton_reservar_auto.place(x=200,y=100,height=25,width=90)
+            
     else:
         messagebox.showerror("Error", "Por favor selecciona un auto para ver detalle.")
     
+def reservar_auto(auto_seleccionado, ventana_detalle):
+    
+    usuarios = cargar_usuarios()
+    usuario_actual = obtener_usuario_actual()
 
-def verificar_usuario(archivo,nombre,contraseña):
-    usuarios = cargar_usuarios() #llamo funcion para devolver la lista de objetos de Usuario
-    for i in usuarios:
-        if i.nombre == nombre and i.contraseña == contraseña and i.rol == "Administrador":
-            return ingresar_a_pantalla_principal_administrador()
+    if auto_seleccionado.disponib == True:
         
-        elif i.nombre == nombre and i.contraseña == contraseña and i.rol == "Usuario":
-            return ingresar_pantalla_principal_usuario(),cargar_lista_autos(lista_autos_para_reservar)
+        auto_seleccionado.disponib = False
+        usuario_actual.autos_reservados.append(auto_seleccionado)
+        autos_disponibles = cargar_autos_disponibles()
         
-    return messagebox.showerror("Incorrecto","El usuario ingresado no es valido")
+        for i in autos_disponibles:
+            if i.marca == auto_seleccionado.marca and i.modelo == auto_seleccionado.modelo and i.año == auto_seleccionado.año:
+                i.disponib = False
+        
+        
+        with open("autos_disponibles.bin", "wb") as file:
+            pickle.dump(autos_disponibles, file)
+
+        with open("usuarios.bin", "wb") as file:
+            for usuario in usuarios:
+                pickle.dump(usuario, file)
+
+        ventana_detalle.destroy()
+        messagebox.showinfo("Éxito", "Auto reservado correctamente.")
+    else:
+        messagebox.showerror("Error", "Este auto ya está reservado.")
+
+
+def obtener_usuario_actual():
+    return usuario_logueado
+
+def verificar_usuario(archivo, nombre, contraseña):
+    #al declarar una variable como global dentro de una función, estás indicando que deseas usar la variable global
+    #en lugar de crear una nueva variable local con el mismo nombre
+    
+    global usuario_logueado
+    usuarios = cargar_usuarios()
+    
+    for usuario in usuarios:
+        if usuario.nombre == nombre and usuario.contraseña == contraseña:
+            usuario_logueado = usuario
+            
+            if usuario.rol == "Administrador":
+                ingresar_a_pantalla_principal_administrador()
+            elif usuario.rol == "Usuario":
+                ingresar_pantalla_principal_usuario()
+                cargar_lista_autos(lista_autos_para_reservar)
+            return
+        
+    messagebox.showerror("Incorrecto", "El usuario ingresado no es válido")
 
 
 # Crear una instancia de la clase Tk
@@ -290,7 +347,7 @@ inicio.title("SISTEMA GESTOR DE VEHICULOS")
 
 
 #INICIO
-login = tk.Frame(inicio)
+login = tk.Frame(inicio,bg="gainsboro")
 login.pack(expand=True,fill="both")
 
 cartel_usuario = tk.Label(inicio,text="Usuario")
@@ -307,19 +364,18 @@ entrada_constraseña = tk.Entry(login)
 entrada_constraseña.place(x=300, y=150, height=40, width=200 )
 contraseña_verificar = entrada_constraseña.get()
 
-boton = tk.Button(login, text = "Todavia no tengo usuario", command = ir_a_registro)
-boton.place(x=340, y=300, height=40, width=150)
+boton = tk.Button(login, text = "Todavia no tengo usuario",relief=tk.FLAT, fg="white", bg="steel blue", command = ir_a_registro)
+boton.place(x=200, y=300, height=40, width=150)
 
-
-boton_inicio_Sesion = tk.Button(login, text = "Iniciar Sesion", command =lambda: verificar_usuario("usuarios.bin", entrada_nombre_usuario.get(), entrada_constraseña.get()))
-boton_inicio_Sesion.place(x=500, y=300, height=40, width=150)
+boton_inicio_Sesion = tk.Button(login, text = "Iniciar Sesion",relief=tk.FLAT, fg="white", bg="steel blue", command =lambda: verificar_usuario("usuarios.bin", entrada_nombre_usuario.get(), entrada_constraseña.get()))
+boton_inicio_Sesion.place(x=400, y=300, height=40, width=150)
 
 
 
 #REGISTRO
-registro = tk.Frame(inicio)
+registro = tk.Frame(inicio,bg="gainsboro")
 
-boton1 = tk.Button(registro, text = "volver a menu", command = volver_a_inicio)
+boton1 = tk.Button(registro, text = "volver a menu",relief=tk.FLAT, fg="white", bg="steel blue", command = volver_a_inicio)
 boton1.place(x=140, y=300, height=40, width=150)
 
 entrada_nombre_usuario_registro = tk.Entry(registro)
@@ -328,8 +384,17 @@ entrada_nombre_usuario_registro.place(x=300, y=100, height=40, width=200 )
 entrada_constraseña_registro = tk.Entry(registro)
 entrada_constraseña_registro.place(x=300, y=150, height=40, width=200 )
 
-boton_registro = tk.Button(registro, text = "registrarse", command = registrar_usuario)
+boton_registro = tk.Button(registro, text = "registrarse",relief=tk.FLAT, fg="white", bg="steel blue", command = registrar_usuario)
 boton_registro.place(x=340, y=300, height=40, width=150)
+
+cartel_usuario2 = tk.Label(registro,text="Usuario")
+cartel_usuario2.place(x=200,y=110,height=20,width=100)
+
+cartel_contra2 = tk.Label(registro,text="Contraseña")
+cartel_contra2.place(x=200,y=160,height=20,width=100)
+
+cartel_adminOusu = tk.Label(registro,text="Seleccione su rol")
+cartel_adminOusu.place(x=200,y=210,height=20,width=100)
 
 seleccion_admin_usuar = tk.Listbox(registro)
 seleccion_admin_usuar.place(x=300, y=200, height=40, width=100)
@@ -339,16 +404,16 @@ seleccion_admin_usuar.insert(2,"Usuario")
 #--------------------------------------------------------------------------------------------------------
 
 #PANTALLA PRINCIPAL ADMNISTRADOR
-pantalla_princial_admin = tk.Frame(inicio)
+pantalla_princial_admin = tk.Frame(inicio,bg="gainsboro")
 
-boton_agregar_auto = tk.Button(pantalla_princial_admin, text = "Agregar automovil", command = ingresar_a_pantalla_agregar)
+boton_agregar_auto = tk.Button(pantalla_princial_admin, text = "Agregar automovil",relief=tk.FLAT, fg="white", bg="steel blue", command = ingresar_a_pantalla_agregar)
 boton_agregar_auto.place(x=440, y=300, height=40, width=150)
 
-boton_modificar_auto = tk.Button(pantalla_princial_admin, text = "Modificar Automovil o Eliminar Automovil", command = ingresar_pantalla_modificar)
+boton_modificar_auto = tk.Button(pantalla_princial_admin, text = "Modificar Automovil o Eliminar Automovil",relief=tk.FLAT, fg="white", bg="steel blue", command = ingresar_pantalla_modificar)
 boton_modificar_auto.place(x=100, y=300, height=40, width=250)
 
-boton_mostrar_usuarios = tk.Button(pantalla_princial_admin, text = "Mostrar usuarios", command = mostrar_usuarios)
-boton_mostrar_usuarios.place(x=140, y=350, height=40, width=150)
+boton_mostrar_usuarios = tk.Button(pantalla_princial_admin, text = "Mostrar usuarios",relief=tk.FLAT, fg="white", bg="steel blue", command = mostrar_usuarios)
+boton_mostrar_usuarios.place(x=300, y=360, height=40, width=150)
 
 
 lista_usuarios = tk.Listbox(pantalla_princial_admin)
@@ -357,11 +422,11 @@ imagen_trash = Image.open("C:\\Users\\lauti\\OneDrive\\Desktop\\programacion\\tp
 imagen_trash = imagen_trash.resize((40, 40), Image.LANCZOS)
 imagen_trash = ImageTk.PhotoImage(imagen_trash)
 
-boton_borrar_usuario = tk.Button(pantalla_princial_admin, image=imagen_trash, command = eliminar_usuario)
+boton_borrar_usuario = tk.Button(pantalla_princial_admin, image=imagen_trash,relief=tk.SOLID, bg="red3", command = eliminar_usuario)
 
 
 #PANTALLA AGREGAR AUTO
-pantalla_agregar_autos = tk.Frame(inicio)
+pantalla_agregar_autos = tk.Frame(inicio,bg="gainsboro")
 
 entrada_marca = tk.Entry(pantalla_agregar_autos)
 entrada_marca.place(x=300, y=100, height=40, width=200 )
@@ -387,43 +452,38 @@ cartel_año.place(x=200,y=210,height=20,width=100)
 cartel_precioXdia = tk.Label(pantalla_agregar_autos,text="Precio por dia")
 cartel_precioXdia.place(x=200,y=260,height=20,width=100)
 
-boton_confirm_agregar_auto = tk.Button(pantalla_agregar_autos, text = "Confirmar", command = agregar_auto)
+boton_confirm_agregar_auto = tk.Button(pantalla_agregar_autos, text = "Confirmar",relief=tk.FLAT, fg="white", bg="steel blue", command = agregar_auto)
 boton_confirm_agregar_auto.place(x=300, y=300, height=40, width=150)
 
 
 #PANTALLA MODIFICAR AUTO
 
-pantalla_modificar_autos = tk.Frame(inicio)
+pantalla_modificar_autos = tk.Frame(inicio,bg="gainsboro")
 
 lista_autos = tk.Listbox(pantalla_modificar_autos)
 lista_autos.place(x=300, y=100, height=100, width=200)
 
-boton_eliminar_auto = tk.Button(pantalla_modificar_autos, text = "Eliminar automovil", command = eliminar_auto)
-boton_eliminar_auto.place(x=500, y=300, height=40, width=150)
+boton_eliminar_auto = tk.Button(pantalla_modificar_autos, text = "Eliminar automovil",relief=tk.FLAT, fg="white", bg="steel blue", command = eliminar_auto)
+boton_eliminar_auto.place(x=550, y=300, height=40, width=150)
 
-boton_modificar_auto = tk.Button(pantalla_modificar_autos, text="Modificar auto", command=modificar_auto)
-boton_modificar_auto.place(x=200, y=300, height=40, width=150)
+boton_modificar_auto = tk.Button(pantalla_modificar_autos, text="Modificar auto",relief=tk.FLAT, fg="white", bg="steel blue", command=modificar_auto)
+boton_modificar_auto.place(x=150, y=300, height=40, width=150)
 
-boton_volver = tk.Button(pantalla_modificar_autos, text="Volver", command= volver_a_inicio_admin)
+boton_volver = tk.Button(pantalla_modificar_autos, text="Volver",relief=tk.FLAT, fg="white", bg="steel blue", command= volver_a_inicio_admin)
 boton_volver.place(x=350, y=300, height=40, width=150)
 
 #--------------------------------------------------------------------------------------------------------------------------------
 
 #PANTALLA PRINCIPAL USUARIOS
 
-pantalla_principal_usuario = tk.Frame(inicio)
+pantalla_principal_usuario = tk.Frame(inicio,bg="gainsboro")
 
-#Los clientes pueden buscar vehículos disponibles, ver detalles y hacer reservas de vehículos.
 
 lista_autos_para_reservar = tk.Listbox(pantalla_principal_usuario)
 lista_autos_para_reservar.place(x=200, y=100, height=200, width=400)
 
-boton_ver_detalle = tk.Button(pantalla_principal_usuario, text="Ver detalle", command = ver_detalle)
+boton_ver_detalle = tk.Button(pantalla_principal_usuario, text="Ver detalle",relief=tk.FLAT, fg="white", bg="steel blue", command = ver_detalle)
 boton_ver_detalle.place(x=200, y=300, height=40, width=150)
-
-boton_reservar = tk.Button(pantalla_principal_usuario, text="Reservar", command = guardar_cambios_auto)
-boton_reservar.place(x=400, y=300, height=40, width=150)
-
 
 
 inicio.mainloop()
